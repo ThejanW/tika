@@ -374,7 +374,7 @@ def classify_image():
         url = request.args.get("url")
         c_type, image_data = get_remotefile(url)
         if not image_data:
-            return flask.Response(status=400, response=jsonify(error="Couldnot HTTP GET %s" % url))
+            return flask.Response(status=400, response=jsonify(error="Could not HTTP GET %s" % url))
         if 'image/jpeg' in c_type:
             image_format = "jpeg"
 
