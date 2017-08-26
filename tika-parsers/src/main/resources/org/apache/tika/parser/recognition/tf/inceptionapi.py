@@ -39,11 +39,11 @@ import sys
 import tarfile
 
 try:
-    #This import is placed inside here to ensure that video_util and OpenCV is not required for image recognition APIs
+    # This import is placed inside here to ensure that video_util and OpenCV is not required for image recognition APIs
     from video_util import get_center_frame, get_frames_interval, get_n_frames
 except:
     print("Can't import video libraries, No video functionality is available")
-    
+
 import numpy as np
 from six.moves import urllib
 import tensorflow as tf
@@ -55,6 +55,7 @@ slim = tf.contrib.slim
 
 import requests
 import json
+
 json.encoder.FLOAT_REPR = lambda o: format(
     o, '.2f')  # JSON serialization of floats
 from time import time
@@ -62,7 +63,6 @@ from PIL import Image
 from io import BytesIO
 import tempfile
 import flask
-
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -83,6 +83,8 @@ tf.app.flags.DEFINE_string('log', 'inception.log',
 
 # pylint: disable=line-too-long
 DATA_URL = 'http://download.tensorflow.org/models/inception_v4_2016_09_09.tar.gz'
+
+
 # pylint: enable=line-too-long
 
 
@@ -157,6 +159,7 @@ def util_download(url, dest_directory):
         sys.stdout.write('\r>> Downloading %s %.1f%%' % (
             filename, float(count * block_size) / float(total_size) * 100.0))
         sys.stdout.flush()
+
     filepath, _ = urllib.request.urlretrieve(url, filepath, _progress)
     print()
     statinfo = os.stat(filepath)
@@ -179,6 +182,7 @@ def util_download_tar(url, dest_directory):
         sys.stdout.write('\r>> Downloading %s %.1f%%' % (
             filename, float(count * block_size) / float(total_size) * 100.0))
         sys.stdout.flush()
+
     filepath, _ = urllib.request.urlretrieve(url, filepath, _progress)
     print()
     statinfo = os.stat(filepath)
@@ -196,11 +200,13 @@ def maybe_download_and_extract():
     # pylint: disable=line-too-long
     if not tf.gfile.Exists(os.path.join(dest_directory, 'imagenet_lsvrc_2015_synsets.txt')):
         util_download(
-            'https://raw.githubusercontent.com/tensorflow/models/master/inception/inception/data/imagenet_lsvrc_2015_synsets.txt', dest_directory)
+            'https://raw.githubusercontent.com/tensorflow/models/master/inception/inception/data/imagenet_lsvrc_2015_synsets.txt',
+            dest_directory)
     if not tf.gfile.Exists(os.path.join(dest_directory, 'imagenet_metadata.txt')):
         util_download(
-            'https://raw.githubusercontent.com/tensorflow/models/master/inception/inception/data/imagenet_metadata.txt', dest_directory)
-    # pylint: enable=line-too-long
+            'https://raw.githubusercontent.com/tensorflow/models/master/inception/inception/data/imagenet_metadata.txt',
+            dest_directory)
+        # pylint: enable=line-too-long
 
 
 def current_time():
@@ -252,14 +258,14 @@ class Classifier(flask.Flask):
 
     def classify(self, image_string, topk):
         eval_probabilities = self.sess.run(self.probabilities, feed_dict={
-                                           self.image_str_placeholder: image_string})
+            self.image_str_placeholder: image_string})
         eval_probabilities = eval_probabilities[0, 0:]
         sorted_inds = [i[0] for i in sorted(
-            enumerate(-eval_probabilities), key=lambda x:x[1])]
+            enumerate(-eval_probabilities), key=lambda x: x[1])]
 
         if topk == None:
             topk = len(sorted_inds)
-        
+
         res = []
         for i in range(topk):
             index = sorted_inds[i]
@@ -269,6 +275,7 @@ class Classifier(flask.Flask):
 
 
 from flask import Flask, request, abort, g, Response, jsonify
+
 app = Classifier(__name__)
 
 
@@ -417,11 +424,13 @@ def classify_image():
         res['classnames'] = classnames
     return Response(response=json.dumps(res), status=200, mimetype="application/json")
 
+
 CENTER = "center"
 INTERVAL = "interval"
 FIXED = "fixed"
 
-ALLOWED_MODE = set([CENTER ,INTERVAL , FIXED])
+ALLOWED_MODE = set([CENTER, INTERVAL, FIXED])
+
 
 @app.route("/inception/v4/classify/video", methods=["GET", "POST"])
 def classify_video():
@@ -444,77 +453,76 @@ def classify_video():
     st = current_time()
     topk = int(request.args.get("topk", "10"))
     human = request.args.get("human", "true").lower() in ("true", "1", "yes")
-    
+
     mode = request.args.get("mode", CENTER).lower()
     if mode not in ALLOWED_MODE:
         '''
         Throw invalid request error
         '''
-        return flask.Response(status=400, response=jsonify(error="not a valid mode. Available mode %s" % str(ALLOWED_MODE)))
-    
+        return flask.Response(status=400,
+                              response=jsonify(error="not a valid mode. Available mode %s" % str(ALLOWED_MODE)))
+
     frame_interval = int(request.args.get("frame-interval", "10"))
     num_frame = int(request.args.get("num-frame", "10"))
-    
+
     if request.method == 'POST':
         video_data = request.get_data()
         ext = request.args.get("ext", ".mp4").lower()
-        
+
         temp_file = tempfile.NamedTemporaryFile(suffix=ext)
         temp_file.file.write(video_data)
         temp_file.file.close()
-        
+
         url = temp_file.name
-        
+
     else:
         url = request.args.get("url")
-    
+
     read_time = current_time() - st
-    st = current_time() # reset start time
-    
+    st = current_time()  # reset start time
+
     if mode == CENTER:
         image_data_arr = [get_center_frame(url)]
     elif mode == INTERVAL:
         image_data_arr = get_frames_interval(url, frame_interval)
     else:
         image_data_arr = get_n_frames(url, num_frame)
-    
+
     classes = []
     for image_data in image_data_arr:
         try:
-            _classes = app.classify(image_data , topk=None)
+            _classes = app.classify(image_data, topk=None)
         except Exception as e:
             app.logger.error(e)
             return Response(status=400, response=str(e))
-        
+
         _classes.sort()
         if len(classes) == 0:
             classes = _classes
         else:
-            for idx,_c in enumerate(_classes):
+            for idx, _c in enumerate(_classes):
                 c = list(classes[idx])
                 c[2] += _c[2]
                 classes[idx] = tuple(c)
-                
-    
+
     # avg out confidence score
-    for idx,c in enumerate(classes):
+    for idx, c in enumerate(classes):
         c = list(c)
-        c[2] = c[2]/len(image_data_arr)
-        
+        c[2] = c[2] / len(image_data_arr)
+
         classes[idx] = tuple(c)
-    
+
     classes = sorted(classes, key=lambda tup: tup[2])[-topk:][::-1]
 
     classids, classnames, confidence = zip(*classes)
-    
-    
+
     classifier_time = current_time() - st
     app.logger.info("Classifier time : %d" % classifier_time)
     res = {
-        'classids' : classids,
+        'classids': classids,
         'confidence': confidence,
         'time': {
-            'read' : read_time,
+            'read': read_time,
             'classification': classifier_time,
             'units': 'ms'
         }
@@ -523,10 +531,12 @@ def classify_video():
         res['classnames'] = classnames
     return Response(response=json.dumps(res), status=200, mimetype="application/json")
 
+
 def main(_):
     if not app.debug:
         print("Serving on port %d" % FLAGS.port)
     app.run(host="0.0.0.0", port=FLAGS.port)
+
 
 if __name__ == '__main__':
     tf.app.run()
