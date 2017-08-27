@@ -527,7 +527,7 @@ def classify_video():
 def main(_):
     if not app.debug:
         print("Serving on port %d" % FLAGS.port)
-    app.run(host="0.0.0.0", port=FLAGS.port, debug=True)
+    app.run(host="0.0.0.0", port=FLAGS.port)
 
 
 if __name__ == '__main__':
